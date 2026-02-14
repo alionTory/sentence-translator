@@ -1,22 +1,16 @@
 /**
  * html 문서에서 팝업이 표시될 직사각형 영역을 나타냄.
- * 
- * @invariant
- * height 값은, display() 실행 이후, 실제 브라우저에서 표시되는 팝업의 높이 px 값과 같음.
  */
 class PopupArea {
     static readonly DEFAULT_WIDTH = 360
     private el: HTMLDivElement;
     private _width = PopupArea.DEFAULT_WIDTH;
-    private _height;
 
     /**
      * 주어진 html 요소를 팝업 영역에 표시
      */
     setContent(content: HTMLElement) {
         this.el.innerHTML = content.outerHTML;
-
-        this.updateHeight();
     }
 
     /**
@@ -67,21 +61,8 @@ class PopupArea {
     setWidth(width: number) {
         this._width = width;
         this.el.style.width = `${width}px`;
-
-        this.updateHeight();
     }
 
-    /**
-     * 객체 변화 시, height 값을 적절히 갱신하기 위한 메서드.
-     * 즉, height 값에 대한 class invariant를 복원.
-     */
-    private updateHeight() {
-        // display: none 이면 높이가 0임에 주의.
-        const visible = this.isVisible();
-        if (!visible) this.display();
-        this._height = this.el.offsetHeight;
-        if (!visible) this.hide();
-    }
 
     /**
      * 팝업 영역의 너비. px 기준.
@@ -89,13 +70,6 @@ class PopupArea {
      */
     get width() {
         return this._width;
-    }
-
-    /**
-     * 팝업 영역의 높이. px 기준.
-     */
-    get height() {
-        return this._height;
     }
 
     /**
@@ -109,12 +83,10 @@ class PopupArea {
 
 
     /**
-     * 주어진 직사각형 영역 rect 근처에 팝업을 위치시킴.
+     * 주어진 직사각형 영역 rect 아래쪽에 팝업을 위치시킴.
      * - 팝업의 왼쪽 끝은 뷰포트 너비 안에 위치해야 함.
      * - 팝업의 너비가 뷰포트 너비보다 작다면, 팝업의 오른쪽 끝은 뷰포트 너비 안에 위치해야 함.
-     * - 팝업과 선택 영역 사이는 8px 간격이 있음.
-     * - (선택 영역의 bottom 좌표) + (간격) + (팝업 높이) 위치가 뷰포트 하단을 넘으면, 팝업을 선택 영역 위쪽에 위치시키고,
-     * - 그렇지 않으면 선택 영역 아래쪽에 위치시킴.
+     * - 팝업과 선택 영역 사이는 상하 8px 간격이 있음.
      */
     setNearRectangleArea(rect: DOMRect) {
         const gap = 8;
@@ -133,11 +105,6 @@ class PopupArea {
         left = Math.max(left, viewPortLeft)
 
         let top = rect.bottom + gap;
-        if (rect.bottom + gap + this.height <= viewPortBottom) {
-            top = rect.bottom + gap;
-        } else {
-            top = rect.top - gap - this.height;
-        }
 
         this.setDocumentPosition(left, top);
     }
