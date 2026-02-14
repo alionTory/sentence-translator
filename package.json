@@ -1,0 +1,25 @@
+{
+  "name": "sentence-translator",
+  "version": "1.0.0",
+  "description": "",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alionTory/sentence-translator.git"
+  },
+  "homepage": "https://github.com/alionTory/sentence-translator#readme",
+  "devDependencies": {
+    "@crxjs/vite-plugin": "^2.3.0",
+    "@types/chrome": "^0.1.36",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1"
+  },
+  "dependencies": {
+    "@google/genai": "^1.41.0"
+  }
+}
