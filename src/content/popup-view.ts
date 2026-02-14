@@ -25,9 +25,6 @@ class PopupArea {
 
         // 문서 루트에 추가
         document.documentElement.appendChild(this.el);
-
-        // 주의 : appendChild 이전에는 offsetHeight 값이 0.
-        this._height = this.el.offsetHeight;
     }
 
     /**
