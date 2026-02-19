@@ -1,0 +1,93 @@
+:host {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 0;
+    height: 0;
+    overflow: visible;
+}
+
+.tooltip {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 720px;
+    color: #fff;
+    background: #111;
+    border-radius: 12px;
+    z-index: 2147483647;
+
+    /* 애니메이션/드래그 체감 개선 */
+    will-change: transform;
+
+    overflow: visible;
+    box-sizing: border-box;
+}
+
+.tooltip__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 3px 12px;
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.tooltip__header:active {
+    cursor: grabbing;
+}
+
+.tooltip__header-blank {
+    flex-grow: 1;
+    align-self: stretch;
+    cursor: grab;
+
+    /* 터치 스크린에서 툴팁 드래그 시 페이지가 스크롤되는 것 방지 */
+    touch-action: none;
+
+    /* 툴팁 드래그 시 텍스트 선택 방지 */
+    user-select: none;
+}
+
+.tooltip__close {
+    border: 0;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.9);
+    cursor: pointer;
+    line-height: 1;
+    padding: 4px 6px;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+.tooltip__close:hover {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.tooltip__body {
+    display: flex;
+    justify-content: space-between;
+    align-items: stretch;
+}
+
+.tooltip__content {
+    padding: 12px;
+    color: rgba(255, 255, 255, 0.92);
+
+    /* 
+    띄어쓰기 없는 긴 단어도 줄바꿈이 되게 하려면 아래가 꼭 필요.
+    없으면 긴 단어가 툴팁 밖으로 넘침.
+     */
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    /* 구형 브라우저 호환용 */
+}
+
+
+.tooltip__resize-handle {
+    display: flex;
+    align-items: center;
+    cursor: ew-resize;
+    background: rgb(37, 52, 63);
+    border-radius: 12px;
+}

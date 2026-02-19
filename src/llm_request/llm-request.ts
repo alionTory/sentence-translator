@@ -1,94 +1,142 @@
-import { GenerateContentResponse, GoogleGenAI } from "@google/genai"
+import { GoogleGenAI } from "@google/genai"
+import OpenAI from "openai";
+import { StringBuffer } from "./string-buffer";
+import * as z from "zod";
 
-abstract class LlmRequester {
-    protected _translationResult = "";
-    /**
-     * 마지막 요청에 대한 응답을 정상적으로 얻었을 경우 true 리턴.
-     * 에러 발생 시 false 리턴.
-     */
-    abstract isLastRequestOk(): boolean;
-
-    /**
-     * 에러 메시지 리턴
-     */
-    abstract errorMessage(): string;
-
-    /**
-     * llm에 문자열 text를 targetLanguage로 번역 요청.
-     * 번역 결과는 translationResult() 를 통해 구할 수 있음.
-     */
-    abstract translateText(text: string, targetLanguage: string): Promise<void>;
-
-    /**
-     * translateSentences() 로 번역한 결과를 리턴.
-     * @require isLastRequestOk()
-     */
-    translationResult(): string {
-        return this._translationResult;
-    }
+type LlmRequest = {
+    lastUserPrompt: string;
 }
 
-class LlmRequesterMock extends LlmRequester {
-    isLastRequestOk(): boolean {
-        return true;
+const LlmProviderSchema = z.literal(["google", "openai"]);
+type LlmProvider = z.infer<typeof LlmProviderSchema>;
+
+abstract class LlmRequester {
+    protected _systemPrompt = ""
+    protected abstract _modelId: string;
+
+    /**
+     * 사용할 모델명을 modelId로 설정.
+     */
+    setModel(modelId: string): void {
+        this._modelId = modelId;
     }
 
-    errorMessage(): string {
-        return "Error occurred during LLM request.";
+    /**
+     * 시스템 프롬프트를 systemPrompt로 설정.
+     */
+    setSystemPrompt(systemPrompt: string): void {
+        this._systemPrompt = systemPrompt;
     }
 
-    async translateText(text: string, targetLanguage: string): Promise<void> {
-        this._translationResult = `[Mocked Translation to ${targetLanguage}]: ${text}`;
-    }
+    /**
+     * Llm provider 종류를 반환.
+     */
+    abstract getProvider(): LlmProvider;
+
+    /**
+     * LlmRequest에 담긴 프롬프트를 바탕으로 llm에 요청을 보냄.
+     * 요청 결과는 StringBuffer 객체를 통해 얻을 수 있음.
+     * 반환된 StringBuffer 객체는 전체 결과를 얻기까지 여러 차례 부분 갱신이 이루어질 수도 있음 (예: 스트림 응답).
+     */
+    abstract request(llmRequest: LlmRequest): StringBuffer;
 }
 
 class GeminiReqeuster extends LlmRequester {
-    private _errorMessage = "GeminiRequester가 생성된 이후 LLM 요청 메서드가 실행되지 않음"
-    private _lastReqeustOk = false
     private _ai;
-    private _model;
+    protected _modelId: string;
 
-    constructor(apiKey: string, model: string) {
+    static readonly DEFAULT_MODEL = "gemini-2.5-flash"
+
+    constructor(apiKey: string) {
         super();
         this._ai = new GoogleGenAI({ "apiKey": apiKey });
-        this._model = model;
+        this._modelId = GeminiReqeuster.DEFAULT_MODEL;
     }
 
-    private systemInstruction(targetLanguage: string) {
-        return `당신은 전문 번역가입니다. 텍스트가 입력으로 주어지면 이를 ${targetLanguage}로 번역하세요.`;
+    getProvider(): LlmProvider {
+        return "google";
     }
 
-    isLastRequestOk(): boolean {
-        return this._lastReqeustOk;
-    }
+    request(llmRequest: LlmRequest): StringBuffer {
+        const result = new StringBuffer();
 
-    errorMessage(): string {
-        return this._errorMessage;
-    }
-
-    async translateText(text: string, targetLanguage: string): Promise<void> {
-        try {
-            const response = await this._ai.models.generateContent({
-                model: this._model,
-                contents: text,
-                config: {
-                    systemInstruction: this.systemInstruction(targetLanguage),
-                },
-            });
-            
-            if(response.text !== undefined) {
-                this._translationResult = response.text;
-                this._lastReqeustOk = true;
-            } else {
-                this._lastReqeustOk = false;
-                this._errorMessage = `LLM이 응답 생성을 거부했습니다. 전체 응답: ${JSON.stringify(response)}`;
+        this._ai.models.generateContentStream({
+            model: this._modelId,
+            contents: llmRequest.lastUserPrompt,
+            config: {
+                systemInstruction: this._systemPrompt,
+            },
+        }).then(async value => {
+            for await (const chunk of value) {
+                if (chunk.text !== undefined) {
+                    result.append(chunk.text);
+                } else {
+                    throw new Error(`전체 응답: ${JSON.stringify(chunk)}`)
+                }
             }
-        } catch (e) {
-            this._lastReqeustOk = false;
-            this._errorMessage = `LLM 요청 중 오류 발생: ${e}`;
-            return;
-        }
+        }).catch(error => {
+            result.setErrorMessage(`LLM 요청 중 에러 발생: ${error}`);
+        });
+
+        return result;
     }
 }
 
-export { LlmRequester, LlmRequesterMock, GeminiReqeuster };
+class OpenAiRequester extends LlmRequester {
+    private _ai;
+    protected _modelId: string;
+
+    static readonly DEFAULT_MODEL = "gpt-5-mini"
+
+    constructor(apiKey: string) {
+        super();
+        this._ai = new OpenAI({ "apiKey": apiKey, "dangerouslyAllowBrowser": true });
+        this._modelId = GeminiReqeuster.DEFAULT_MODEL;
+    }
+
+    getProvider(): LlmProvider {
+        return "google";
+    }
+
+    request(llmRequest: LlmRequest): StringBuffer {
+        const result = new StringBuffer();
+
+        this._ai.responses.create({
+            model: this._modelId,
+            input: [
+                {
+                    role: "system",
+                    content: this._systemPrompt,
+                },
+                {
+                    role: "user",
+                    content: llmRequest.lastUserPrompt,
+                },
+            ],
+            stream: true,
+        }).then(async stream => {
+            for await (const event of stream) {
+                switch (event.type) {
+                    case "response.output_text.delta":
+                        result.append(event.delta);
+                        break;
+                    case "response.failed":
+                        throw new Error(JSON.stringify(event.response.error));
+                        break;
+                    case "error":
+                        throw new Error(JSON.stringify(event))
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }).catch(error => {
+            result.setErrorMessage(`LLM 요청 중 에러 발생: ${error}`);
+        });
+
+        return result;
+    }
+}
+
+export { LlmRequester, GeminiReqeuster, OpenAiRequester, LlmProviderSchema };
+export type { LlmProvider };

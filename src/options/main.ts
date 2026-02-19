@@ -1,5 +1,6 @@
 import "./style.css";
-import { loadSettings, saveSettings, type LlmProvider, type Settings } from "../shared/settings";
+import { loadSettings, parseSettings, saveSettings, Settings, SettingsSchema } from "../shared/settings";
+import { LlmProvider } from "../llm_request/llm-request";
 
 function byId<T extends HTMLElement>(id: string): T {
     const el = document.getElementById(id);
@@ -25,20 +26,23 @@ async function init() {
     contentFontSizeEl.value = loadedSettings.contentFontSize.toString();
 
     saveBtn.addEventListener("click", async () => {
-        const next: Settings = {
+        const rawSettings: Settings = {
             provider: providerEl.value as LlmProvider,
             model: modelEl.value.trim(),
             apiKey: apiKeyEl.value.trim(),
             targetLanguage: targetLanguageEl.value.trim(),
-            contentFontSize: parseInt(contentFontSizeEl.value) || 16,
+            contentFontSize: parseInt(contentFontSizeEl.value),
         };
 
-        if (!next.model) {
+        if (!rawSettings.model) {
             statusEl.textContent = "Model을 입력하세요.";
-        } else if (!next.apiKey) {
+        } else if (!rawSettings.apiKey) {
             statusEl.textContent = "API Key를 입력하세요.";
+        } else if (!rawSettings.targetLanguage) {
+            statusEl.textContent = "Target Language를 입력하세요.";
         } else {
-            await saveSettings(next);
+            const newSettings = parseSettings(rawSettings);
+            await saveSettings(newSettings);
             statusEl.textContent = "저장되었습니다.";
             setTimeout(() => (statusEl.textContent = ""), 1500);
         }
@@ -47,5 +51,5 @@ async function init() {
 
 init().catch((e) => {
     console.error(e);
-    statusEl.textContent = "초기화 실패";
+    statusEl.textContent = "에러: 저장된 설정을 불러오지 못했습니다.";
 });
